@@ -49,10 +49,111 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
   return -1;
 }
 
-static int cmd_help(char *args);
+static int cmd_help(char *args){
+  printf("help: Display information about all supported commands\n");
+  printf("c: Continue the execution of the program\n");
+  printf("q: Exit NEMU\n");
+  printf("si: step N commands\n");
+  printf("info: print the information of registers\n");
+  printf("x: scan memory\n");
+  printf("p: print the value of expression\n");
+  printf("w: set watchpoint\n");
+  printf("d: delete watchpoint\n");
+  return 0;
+};
+
+static int cmd_si(char *args) {
+  char *arg = strtok(NULL, " ");
+  int n = 1;
+  if (arg != NULL) {
+    sscanf(arg, "%d", &n);
+  }
+  cpu_exec(n);
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (strcmp(arg, "w") == 0) {
+    printf("info r: print the information of registers\n");
+    return 0;
+  }
+  if (strcmp(arg, "r") == 0) {
+    isa_reg_display();
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  char *arg1 = strtok(NULL, " ");
+  char *arg2 = strtok(NULL, " ");
+  if (arg1 == NULL || arg2 == NULL) {
+    printf("x N EXPR: scan memory\n");
+    return 0;
+  }
+  int n;
+  vaddr_t addr;
+  sscanf(arg1, "%d", &n);
+  sscanf(arg2, "%x", &addr);
+  for (int i = 0; i < n; i++) {
+    printf("0x%08x: ", addr);
+    for (int j = 0; j < 4; j++) {
+      printf("0x%02x ", vaddr_read(addr, 1));
+      addr++;
+    }
+    printf("\n");
+  }
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("p EXPR: print the value of expression\n");
+    return 0;
+  }
+  bool success = true;
+  word_t result = isa_reg_str2val(arg, &success);
+  if (success) {
+    printf("%d\n", result);
+  } else {
+    printf("Invalid expression\n");
+  }
+  return 0;
+}
+
+static int cmd_w(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("w EXPR: set watchpoint\n");
+    return 0;
+  }
+  WP *wp = new_wp();
+  strcpy(wp->expr, arg);
+  bool success = true;
+  wp->value = isa_reg_str2val(arg, &success);
+  if (!success) {
+    printf("Invalid expression\n");
+    free_wp(wp);
+  }
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("d N: delete watchpoint\n");
+    return 0;
+  }
+  int n;
+  sscanf(arg, "%d", &n);
+  free_wp_by_num(n);
+  return 0;
+}
 
 static struct {
   const char *name;
@@ -62,7 +163,12 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  { "si", "step N commands", cmd_si },
+  { "info", "print the information of registers", cmd_info },
+  { "x", "scan memory", cmd_x },
+  { "p", "print the value of expression", cmd_p },
+  { "w", "set watchpoint", cmd_w },
+  { "d", "delete watchpoint", cmd_d },
   /* TODO: Add more commands */
 
 };
